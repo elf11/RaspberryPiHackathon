@@ -1,0 +1,42 @@
+Utilizare:
+
+Serverul primeste un port pe care asculta
+Clientul primeste un nume, adresa ip a serverului, portul serverului si portul propriu pe care asculta
+
+Structuri:
+Se folosesc doua structuri:
+
+Mesaj care contine un payload de 1024 de bytes precum si doua campuri, type si info, folosite pentru tipul mesajului respectiv pentru alte informatii.
+Se foloseste si o structura pentru a memora datele unui client (nume, adresa ip, port, timpul conectarii, fisiere partajate)
+
+Atat clientul cat si serverul pot accepta conexiuni si verifica in permanenta socketii pe care s-au primit date folosind apelul select. Apelul select este folosit impreuna cu un timer, care previne acest apel sa devina blocant, permitand astfel transferul fisierelor in timp ce se pot primi alte mesaje sau comenzi. Timerul a fost setat la 10 ms.
+
+Inchidere conexiuni:
+Daca se sesiseaza la un moment dat ca o conexiune a fost intrerupta, atunci socketul corespunzator este inchis si scos din lista descriptorilor. Daca se intrerupe conexiunea cu serverul se inchid conexiunile deschise si se iese din program.
+
+Server:
+
+Acesta ia portul primit, deschide un socket si face bind pe portul primit. Dupa care seteaza portul respectiv pentru a asculta cereri de conectare. Acest port impreuna cu stdin sunt introduse in lista cu descriptorii de socketi. Daca vine o cerere de conectare se accepta si se asteapta mesajul cu informatii suplimentare. Pe baza acestuia se stabileste daca clientul se poate conecta sau daca cererea va fi respinsa, intorcand si motivul respingerii. In caz ca conexiunea se accepta, socketul se adauga la lista descriptorilor. Se pot primii si 2 comenzi de la tastatura, status, care afiseaza lista cu toti clientii conectati si informatii despre ei si quit, care intrerupe toate conexiunile si inchide programul.
+
+Clientul:
+
+Acesta ia portul primit, deschide un socket si face bind pe portul primit. Dupa care setel respectiv pentru a asculta cereri de conectare. Dupa aceasta se va conecta la server, trimitand imediat dupa stabilirea conexiunii un mesaj cu datele lui (port si nume). Daca conexiunea este aprobata va adauga socketul pentru comunicarea cu serverul la lista descriptorilor.
+
+Clientul va asculta pe stdin pentru a primi comenzi. In functie de comenzile care se primesc se iau diferite actiuni:
+
+clientlist: se trimite mesaj de tip 1 la server, care va intoarce un mesaj de tip 1 continand in payload o lista cu toti clientii, lista care este afisata
+
+infoclient nume: se trimite un mesaj de tip 2 serverului cu numele clientului in payload. Serverul va raspunde cu un mesaj de tip 2 continand informatii despre clientul respectiv in payload, informatii care vor fi afisate. Daca clientul respectiv nu exista, se va intoarce un 1 in campul info
+
+message client mesaj: se trimite un mesaj de tip 3 serverului si se salveaza textul mesajului. Serverul va raspunde cu un mesaj de tip 3 continand numele, adresa ip si portul clientului destinatie. Se va deschide o conexiune catre destinatar si va fi trimis un mesaj de tip 8, continand numele expeditorului si mesajul. Destinatarul va afisa mesajul si expeditorul, iar apoi va fi inchisa conexiunea. Daca clientul respectiv nu exista, se va intoarce un 1 in campul info
+
+sharefile nume: se trimite mesaj de tip 4 la server cu numele fisierului in payload. Serverul va adauga acel fisier in lista corespunzatoare clientului, daca nu exista
+
+unsharefile nume: se trimite mesaj de tip 5 la server cu numele fisierului in payload. Serverul va sterge acel fisier din lista corespunzatoare clientului, daca exista
+
+getshare client: se trimite un mesaj de tip 6 serverului cu numele clientului in payload. Serverul va raspunde cu un mesaj de tip 6 continand lista cu fisiere partajate ale clientului respectiv in payload, lista care va fi afisata. Daca clientul respectiv nu exista, se va intoarce un 1 in campul info
+
+getfile client fisier: se trimite un mesaj de tip 7 cu numele clientului si a fisierului si se salveaza numele fisierului. Serverul va raspunde cu un mesaj de tip 7 continand numele, adresa ip si portul clientului destinatie, in caz ca acesta exista si ca are acel fisier partajat. In caz contrar va intoarce un cod corespunzator in campul info, diferit pentru cele 2 situatii. Se va deschide o conexiune catre destinatar, impreuna cu fisierul care va fi primit si se asociaza aceste doua valori. Se afiseaza un mesaj si se intrerupe transferul in caz ca fisierul nu poate fi deschis. Se va trimite un mesaj de tip 9, continand numele expeditorului si fisierul cerut. Clientul care primeste mesajul asociaza descriptorul fisierului ce va fi deschis cu soketul pe care a primit mesajul. Inainte de a verifica daca s-au primit date pe unul din socketi sau pe stdin, se transfera 1KB din fiecare fisier deschis, datele fiind transmise intr-un mesaj de tip 10. Daca intr-un fisier nu mai sunt date, atunci se va trimite un mesaj de tip 11 care va marca sfarsitul transferului. Fisierele si conexiunea vor fi inchise. Daca in timpul transferului se inchide conexiunea, va fi afisat un mesaj de eroare. Se afiseaza mesaje si la terminarea transferului, la ambii clienti.
+
+quit: clientul va inchide toate conexiunile si se va opri. Serverul va afisa un mesaj pentru a semnzaliza acest eveniment
+
